@@ -31,7 +31,7 @@ calculate_mi <- function(mat){
   progress <- function(n) setTxtProgressBar(pb, n)
   opts <- list(progress = progress)
   # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('tidyverse', 'data.table'),
+  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
                         .options.snow = opts) %dopar%
     {
       get_jointent_unweighted(joint_cols[i, "V1"], joint_cols[i, "V2"], mat)
@@ -121,7 +121,7 @@ calculate_meaned_mi <- function(mat, df){
   progress <- function(n) setTxtProgressBar(pb, n)
   opts <- list(progress = progress)
   # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('tidyverse', 'data.table'),
+  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
                         .options.snow = opts) %dopar%
     {
       get_jointent_meaned(joint_cols[i, "V1"], joint_cols[i, "V2"], df, mat)
