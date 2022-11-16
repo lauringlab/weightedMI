@@ -16,7 +16,7 @@ calculateMI <- function(msa_matrix,
   joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
   
   cl <- makeCluster(ncores, type="SOCK") # for 4 cores machine
-  clusterExport(cl, c("get_jointent_meaned", "get_jointent_unweighted", "calculateMI"))
+  clusterExport(cl, c("get_ent_meaned", "get_ent_unweighted", "calculateMI"))
   registerDoSNOW (cl)
   
   pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
@@ -24,14 +24,19 @@ calculateMI <- function(msa_matrix,
   opts <- list(progress = progress)
   
   # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
+  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c",
+                        .packages=c('data.table'),
                         .options.snow = opts) %dopar%
     {
+      joint_mat <- as.matrix(paste(msa_matrix[,joint_cols[i, "V1"]],
+                         msa_matrix[,joint_cols[i, "V2"]]))
+      rownames(joint_mat) <- rownames(msa_matrix)
+      
       if(weighted){
-        get_jointent_meaned(joint_cols[i, "V1"], joint_cols[i, "V2"], groups, msa_matrix)
+        get_ent_meaned(joint_mat, groups)
       }
       else{
-        get_jointent_unweighted(joint_cols[i, "V1"], joint_cols[i, "V2"], msa_matrix)
+        get_ent_unweighted(joint_mat)
       }
     }
   
@@ -43,49 +48,35 @@ calculateMI <- function(msa_matrix,
 
 get_entropies <- function(mat, weighted = TRUE, groups = NULL, weights = NULL){
   entropies <- vector(length = ncol(mat))
-  if(weighted){
-    for(i in 1:ncol(mat)){
-      entropies[i] = get_ent_meaned(i, groups, mat)
+  for(i in 1:ncol(mat)){
+    mat_i <- as.matrix(mat[,i])
+    rownames(mat_i) <- rownames(mat)
+    
+    if(weighted){
+      entropies[i] = get_ent_meaned(mat_i, groups)
     }
-  }
-  else{
-    for(i in 1:ncol(mat)){
-      entropies[i] = get_ent_unweighted(i, mat)
+    else{
+      entropies[i] = get_ent_unweighted(mat_i)
     }
   }
   return(entropies)
 }
 
 #Get Shannon entropy
-get_ent_unweighted <- function(residue, mat){
-  t <- prop.table(table(mat[,residue]))
-  
-  return(sum(-t*log2(t)))
-}
-
-#Get joint entropy
-get_jointent_unweighted <- function(residue_a,residue_b, mat){
-  jointcol <- as.matrix(paste(mat[,residue_a],mat[,residue_b],sep=""))
-  
-  t <- prop.table(table(jointcol))
+get_ent_unweighted <- function(mat){
+  t <- prop.table(table(mat))
   
   return(sum(-t*log2(t)))
 }
 
 #Get equal-weighted Shannon entropy
-get_ent_meaned <- function(pos, df, mat){
+get_ent_meaned <- function(mat, df){
   groups <- unique(df$date)
   
   t1f <- list()
   for(i in 1:length(groups)){
     mat_i <- mat[df[df$date == groups[i],]$rowname,]
-    if(is.null(dim(mat_i))){
-      t1f[[i]] = as.list(1)
-      names(t1f[[i]]) <- mat_i[pos]
-    }
-    else{
-      t1f[[i]] <- as.list(prop.table(table(mat_i[,pos])))
-    }
+    t1f[[i]] <- as.list(prop.table(table(mat_i)))
   }
   
   t1frbind <- rbindlist(t1f, fill = TRUE)
@@ -93,29 +84,6 @@ get_ent_meaned <- function(pos, df, mat){
   t1frw <- colMeans(t1frbind, na.rm = TRUE)
   
   return(sum(-log2(t1frw)*t1frw))
-}
-
-#Get equal-weighted joint entropy
-get_jointent_meaned <- function(a, b, df, mat){
-  groups <- unique(df$date)
-
-  t12f <- list()
-  for(i in 1:length(groups)){
-    mat_i <- mat[df[df$date == groups[i],]$rowname,]
-    if(is.null(dim(mat_i))){
-      t12f[[i]] = as.list(1)
-      names(t12f[[i]]) <- paste(mat_i[a], mat_i[b])
-    }
-    else{
-      t12f[[i]] <- as.list(prop.table(table(paste(mat_i[,a], mat_i[,b]))))
-    }
-  }
-  
-  t12frbind <- rbindlist(t12f, fill = TRUE)
-  t12frbind[is.na(t12frbind)] <- 0
-  t12frw <- colMeans(t12frbind, na.rm = TRUE)
-  
-  return(sum(-log2(t12frw)*t12frw))
 }
 
 #Format MI results, regardless of weighting
