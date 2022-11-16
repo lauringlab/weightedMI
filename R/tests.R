@@ -28,6 +28,7 @@ mi_weighted_res <- readRDS("../timeMI/data/MI_results_091122/h3n2_meaned_mi_noHA
            V2 <= 100)
 
 sum(h3n2_meaned_mi_noHA$mi == mi_weighted_res$mi)
+sum(h3n2_meaned_mi_noHA$joint_entropy == mi_weighted_res$joint_entropy)
 
 
 

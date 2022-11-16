@@ -10,14 +10,35 @@ calculateMI <- function(msa_matrix,
                         groups = NULL,
                         weights = "equal",
                         ncores = 2){
-  if(weighted){
-    mi <- calculate_weighted_mi(msa_matrix, groups, weights, ncores)
-  }
-  else{
-    mi <- calculate_raw_mi(msa_matrix, ncores)
-  }
   
-  return(mi)
+  entropies <- get_entropies(msa_matrix, weighted = weighted, groups = groups)
+  non_zero_e <- which(entropies!=0)
+  joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
+  
+  cl <- makeCluster(ncores, type="SOCK") # for 4 cores machine
+  clusterExport(cl, c("get_jointent_meaned", "get_jointent_unweighted", "calculateMI"))
+  registerDoSNOW (cl)
+  
+  pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
+  progress <- function(n) setTxtProgressBar(pb, n)
+  opts <- list(progress = progress)
+  
+  # parallelization with vectorization
+  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
+                        .options.snow = opts) %dopar%
+    {
+      if(weighted){
+        get_jointent_meaned(joint_cols[i, "V1"], joint_cols[i, "V2"], groups, msa_matrix)
+      }
+      else{
+        get_jointent_unweighted(joint_cols[i, "V1"], joint_cols[i, "V2"], msa_matrix)
+      }
+    }
+  
+  close(pb)
+  stopCluster(cl)
+  
+  return(format_mi(unlist(entropies), joint_ents, joint_cols))
 }
 
 get_entropies <- function(mat, weighted = TRUE, groups = NULL, weights = NULL){
@@ -35,33 +56,6 @@ get_entropies <- function(mat, weighted = TRUE, groups = NULL, weights = NULL){
   return(entropies)
 }
 
-#Calculate MI without any weighting
-calculate_raw_mi <- function(mat, ncores){
-  entropies <- get_entropies(mat, weighted = FALSE)
-  non_zero_e <- which(entropies!=0)
-  
-  joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
-  
-  cl <- makeCluster(ncores, type="SOCK") # for 4 cores machine
-  clusterExport(cl, c("get_jointent_unweighted", "calculate_raw_mi"))
-  registerDoSNOW (cl)
-  
-  pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
-  progress <- function(n) setTxtProgressBar(pb, n)
-  opts <- list(progress = progress)
-  # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
-                        .options.snow = opts) %dopar%
-    {
-      get_jointent_unweighted(joint_cols[i, "V1"], joint_cols[i, "V2"], mat)
-    }
-  
-  close(pb)
-  stopCluster(cl)
-  
-  return(format_mi(entropies, joint_ents, joint_cols))
-}
-
 #Get Shannon entropy
 get_ent_unweighted <- function(residue, mat){
   t <- prop.table(table(mat[,residue]))
@@ -76,37 +70,6 @@ get_jointent_unweighted <- function(residue_a,residue_b, mat){
   t <- prop.table(table(jointcol))
   
   return(sum(-t*log2(t)))
-}
-
-#Caculate MI with weights (equal or defined)
-calculate_weighted_mi <- function(mat, groups, weights, ncores){
-  ents <- get_entropies(mat, groups = groups)
-  
-  non_zero_e <- which(ents!=0)
-  
-  print("doing combn step")
-  joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
-  
-  print("starting clusters")
-  cl <- makeCluster(ncores, type="SOCK") # for 4 cores machine
-  clusterExport(cl, c("get_jointent_meaned", "calculate_weighted_mi"))
-  registerDoSNOW (cl)
-  
-  pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
-  progress <- function(n) setTxtProgressBar(pb, n)
-  opts <- list(progress = progress)
-  # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c", .packages=c('data.table'),
-                        .options.snow = opts) %dopar%
-    {
-      get_jointent_meaned(joint_cols[i, "V1"], joint_cols[i, "V2"], groups, mat)
-    }
-  
-  close(pb)
-  stopCluster(cl)
-  
-  ents <- unlist(ents)
-  return(format_mi(ents, joint_ents, joint_cols))
 }
 
 #Get equal-weighted Shannon entropy
