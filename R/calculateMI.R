@@ -1,10 +1,23 @@
 #Functions for calculating MI and weighted MI
 
-library(data.table)
-library(foreach)
-library(doSNOW)
-
-#Main function
+#' Calculate MI, raw or weighted
+#'
+#' This function calculates the MI, APC, and MIp from an MSA loaded with readMSA.
+#' If weighted is set to FALSE, then only msa_matrix is needed as input. If
+#' weighted is set to TRUE and weights is set to "equal", then a "groups"
+#' dataframe is required that contains an 'ID' column that matches the msa_matrix
+#' and a 'group' column. Otherwise, a weights dataframe is required that
+#' contains a 'group' column and a 'weight' column.
+#'
+#'
+#' @param msa_matrix Matrix format of MSA, from readMSA
+#' @param weighted either TRUE, for weighted MI , or FALSE, for raw MI
+#' @param groups a dataframe with 'ID' and 'group'
+#' @param weights either "equal" or a dataframe with 'group' and 'weight'
+#' @param ncores Number of cores for parallelization
+#' @return A data.frame containing entropy, MI, APC, and MIp values
+#' @importFrom foreach "%dopar%"
+#' @export
 calculateMI <- function(msa_matrix, weighted = TRUE, groups = NULL,
                         weights = "equal", ncores = 2){
   
@@ -23,16 +36,16 @@ calculateMI <- function(msa_matrix, weighted = TRUE, groups = NULL,
   non_zero_e <- which(entropies!=0)
   joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
   
-  cl <- makeCluster(ncores, type="SOCK") # for 4 cores machine
-  clusterExport(cl, c("get_ent_unweighted", "get_ent_weighted","calculateMI"))
-  registerDoSNOW (cl)
+  cl <- snow::makeCluster(ncores, type="SOCK") # for 4 cores machine
+  snow::clusterExport(cl, c("get_ent_unweighted", "get_ent_weighted","calculateMI"))
+  doSNOW::registerDoSNOW (cl)
   
   pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
   progress <- function(n) setTxtProgressBar(pb, n)
   opts <- list(progress = progress)
   
   # parallelization with vectorization
-  joint_ents <- foreach(i = 1:nrow(joint_cols), .combine="c",
+  joint_ents <- foreach::foreach(i = 1:nrow(joint_cols), .combine="c",
                         .packages=c('data.table'), .options.snow = opts) %dopar%
     {
       joint_mat <- as.matrix(paste(msa_matrix[,joint_cols[i, "V1"]],
@@ -47,7 +60,7 @@ calculateMI <- function(msa_matrix, weighted = TRUE, groups = NULL,
       }
     }
   close(pb)
-  stopCluster(cl)
+  snow::stopCluster(cl)
   
   return(format_mi(unlist(entropies), joint_ents, joint_cols))
 }
@@ -68,7 +81,7 @@ get_ent_weighted <- function(mat, df, weights){
     group_freqs[[i]] <- as.list(prop.table(table(mat_i)))
   }
   
-  group_freqs_bind <- rbindlist(group_freqs, fill = TRUE)
+  group_freqs_bind <- data.table::rbindlist(group_freqs, fill = TRUE)
   group_freqs_bind[is.na(group_freqs_bind)] <- 0
   
   if(weights == "equal"){
