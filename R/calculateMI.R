@@ -18,7 +18,7 @@
 #' @return A data.frame containing entropy, MI, APC, and MIp values
 #' @importFrom foreach "%dopar%"
 #' @export
-calculateMI <- function(msa_matrix, weighted = TRUE, groups = NULL,
+calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
                         weights = "equal", ncores = 2){
   
   entropies <- vector(length = ncol(msa_matrix))

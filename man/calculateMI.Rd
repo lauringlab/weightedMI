@@ -6,7 +6,7 @@
 \usage{
 calculateMI(
   msa_matrix,
-  weighted = TRUE,
+  weighted = FALSE,
   groups = NULL,
   weights = "equal",
   ncores = 2
