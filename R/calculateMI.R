@@ -86,7 +86,7 @@ format_mi <- function(entropies, joint_entropies, joint_cols){
   joint_cols$joint_entropy <- joint_entropies
   joint_cols$v1_entropy <- entropies[joint_cols$V1]
   joint_cols$v2_entropy <- entropies[joint_cols$V2]
-  joint_cols$mi <- (joint_cols$v1_entropy + joint_cols$v2_entropy) - joint_cols$joint_entropy
+  joint_cols$mi <- (joint_cols$v1_entropy+joint_cols$v2_entropy)-joint_cols$joint_entropy
   
   meanMI <- mean(joint_cols$mi)
   

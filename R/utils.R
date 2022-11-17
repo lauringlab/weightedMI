@@ -34,5 +34,3 @@ getNetworkInput <- function(mi_output){
 
 
 
-
-
