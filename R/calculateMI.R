@@ -15,7 +15,7 @@
 #' @param groups a dataframe with 'ID' and 'group'
 #' @param weights either "equal" or a dataframe with 'group' and 'weight'
 #' @param ncores Number of cores for parallelization
-#' @return A data.frame containing entropy, MI, APC, and MIp values
+#' @return A data.frame containing entropy, MI, APC, MIp, and z-score (MIp)
 #' @importFrom foreach "%dopar%"
 #' @export
 calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
@@ -37,7 +37,10 @@ calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
   joint_cols <- as.data.frame(t(combn(non_zero_e, 2)))
   
   cl <- snow::makeCluster(ncores, type="SOCK") # for 4 cores machine
-  snow::clusterExport(cl, c("get_ent_unweighted", "get_ent_weighted","calculateMI"))
+  snow::clusterExport(cl, list = c("get_ent_unweighted",
+                            "get_ent_weighted",
+                            "calculateMI"),
+                      )
   doSNOW::registerDoSNOW (cl)
   
   pb <- txtProgressBar(max = nrow(joint_cols), style = 3)
@@ -65,34 +68,38 @@ calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
   return(format_mi(unlist(entropies), joint_ents, joint_cols))
 }
 
+#Putting entropy functions here because of weird cluster issues
 #Get Shannon entropy
+#' @export
 get_ent_unweighted <- function(mat){
   t <- prop.table(table(mat))
   return(sum(-t*log2(t)))
 }
 
 #Get weighted Shannon entropy
+#' @export
 get_ent_weighted <- function(mat, df, weights){
-  groups <- unique(df$date)
+  groups <- sort(unique(df$group))
   
   group_freqs <- list()
   for(i in 1:length(groups)){
-    mat_i <- mat[df[df$date == groups[i],]$rowname,]
+    mat_i <- mat[df[df$group == groups[i],]$ID,]
     group_freqs[[i]] <- as.list(prop.table(table(mat_i)))
   }
   
   group_freqs_bind <- data.table::rbindlist(group_freqs, fill = TRUE)
   group_freqs_bind[is.na(group_freqs_bind)] <- 0
   
-  if(weights == "equal"){
+  if(is.null(dim(weights))){
     mean_freqs <- colMeans(group_freqs_bind)
   }
   else{
-    mean_freqs <- colSums(group_freqs_bind*weights)
+    mean_freqs <- colSums(group_freqs_bind*weights$weight)
   }
   
   return(sum(-log2(mean_freqs)*mean_freqs))
 }
+
 
 #Format MI results, regardless of weighting
 format_mi <- function(entropies, joint_entropies, joint_cols){
@@ -109,11 +116,14 @@ format_mi <- function(entropies, joint_entropies, joint_cols){
     mean_MIs[i] <- mean(joint_cols[joint_cols$V1 == i | joint_cols$V2 == i,]$mi)
   }
   
+  joint_cols$Group <- paste("[",joint_cols$V1,";",joint_cols$V2, "]",sep = "")
   joint_cols$v1_meanMI <- mean_MIs[joint_cols$V1]
   joint_cols$v2_meanMI <- mean_MIs[joint_cols$V2]
   joint_cols$apc <- (joint_cols$v1_meanMI*joint_cols$v2_meanMI)/meanMI
   joint_cols$mip <- joint_cols$mi - joint_cols$apc
-  joint_cols$Group <- paste("[", joint_cols$V1, ";", joint_cols$V2, "]", sep = "")
+  mip_mean <- mean(joint_cols$mip)
+  mip_sd <- sd(joint_cols$mip)
+  joint_cols$z_score <- (joint_cols$mip-mip_mean)/mip_sd
   
   return(joint_cols)
 }

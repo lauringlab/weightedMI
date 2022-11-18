@@ -2,5 +2,7 @@
 
 export(calculateMI)
 export(getNetworkInput)
+export(get_ent_unweighted)
+export(get_ent_weighted)
 export(readMSA)
 importFrom(foreach,"%dopar%")
