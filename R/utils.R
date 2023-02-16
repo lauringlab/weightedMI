@@ -44,6 +44,14 @@ getNetworkInput <- function(mi_output){
   ))
 }
 
+#' This is data to be included in my package
+#'
+#' @name pb2_meta
+#' @docType data
+#' @author Sarah Arcos \email{sarah.e.arcos@gmail.com}
+#' @references \url{gisaid.com}
+#' @keywords data
+NULL
 
 
 

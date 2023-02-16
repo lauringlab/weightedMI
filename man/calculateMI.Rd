@@ -24,7 +24,7 @@ calculateMI(
 \item{ncores}{Number of cores for parallelization}
 }
 \value{
-A data.frame containing entropy, MI, APC, MIp, and z-score (MIp)
+A data.frame containing entropy, MI, APC, MIp, and z-score
 }
 \description{
 This function calculates the MI, APC, and MIp from an MSA loaded with readMSA.

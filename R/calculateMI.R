@@ -15,8 +15,11 @@
 #' @param groups a dataframe with 'ID' and 'group'
 #' @param weights either "equal" or a dataframe with 'group' and 'weight'
 #' @param ncores Number of cores for parallelization
-#' @return A data.frame containing entropy, MI, APC, MIp, and z-score (MIp)
-#' @importFrom foreach "%dopar%"
+#' @return A data.frame containing entropy, MI, APC, MIp, and z-score
+#' @import data.table
+#' @import doSNOW
+#' @import snow
+#' @import foreach
 #' @export
 calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
                         weights = "equal", ncores = 2){
@@ -70,6 +73,13 @@ calculateMI <- function(msa_matrix, weighted = FALSE, groups = NULL,
 
 #Putting entropy functions here because of weird cluster issues
 #Get Shannon entropy
+#' Get Shannon entropy, raw
+#'
+#' This function calculates the Shannon entropy of a column or pair of columns
+#' from an MSA
+#'
+#' @param mat Matrix format of MSA, from readMSA
+#' @return A table containing the AA frequencies from mat
 #' @export
 get_ent_unweighted <- function(mat){
   t <- prop.table(table(mat))
@@ -77,6 +87,17 @@ get_ent_unweighted <- function(mat){
 }
 
 #Get weighted Shannon entropy
+#Get Shannon entropy
+#' Get Shannon entropy, weighted
+#'
+#' This function calculates the weighted Shannon entropy of a column or pair of
+#' columns from an MSA
+#'
+#' @param mat Matrix format of MSA, from readMSA
+#' @param df dataframe containing ID and group, where ID matches rownames of mat
+#' @param weights a dataframe containing group and weight, specifying the weight for each group in df
+#' @return A table containing the AA frequencies from mat
+#' @import data.table
 #' @export
 get_ent_weighted <- function(mat, df, weights){
   groups <- sort(unique(df$group))
@@ -127,3 +148,8 @@ format_mi <- function(entropies, joint_entropies, joint_cols){
   
   return(joint_cols)
 }
+
+
+#' @import stats
+#' @import utils
+NULL
