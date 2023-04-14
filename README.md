@@ -13,7 +13,7 @@ Install weightedMI from github using devtools:
 
 ## Usage
 
-We will use an example subset of SARS-CoV-2 Spike sequences. We can use the `readMSA` function to read in a fasta file:
+We will use an example subset of Influenza A/H3N2 PB2 sequences. We can use the `readMSA` function to read in a fasta file:
 
     
     library(weightedMI)
